@@ -1,0 +1,26 @@
+# Python environments
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# Local settings and secrets
+.env
+.env.*
+!.env.example
+.sleepbuds_addresses
+*.pem
+*.key
+
+# Temporary and backup files
+*.bak
+*.backup
+*.tmp
+*.log
+
+# Browser preview backups
+BrowserPreview/index.before_*.html
+*.backup_*

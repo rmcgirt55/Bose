@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sleepbuds Revival Preview</title>
+<style>
+:root {
+  color-scheme: dark;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #111318;
+  color: #f5f5f7;
+  padding: 28px 16px;
+}
+.phone {
+  width: min(100%, 390px);
+  min-height: 750px;
+  margin: auto;
+  padding: 28px 20px;
+  background: #1c1c1e;
+  border: 5px solid #44454a;
+  border-radius: 42px;
+  box-shadow: 0 15px 55px #0009;
+}
+.status {
+  text-align: center;
+  font-size: 13px;
+  color: #a0a0a5;
+  margin-bottom: 25px;
+}
+h1 { font-size: 27px; margin-bottom: 8px; }
+h2 { font-size: 17px; margin: 26px 0 12px; }
+.subtitle { color: #a0a0a5; font-size: 14px; }
+.card {
+  background: #2c2c2e;
+  padding: 17px;
+  border-radius: 16px;
+  margin: 12px 0;
+}
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.small { color: #aaa; font-size: 13px; }
+.green { color: #50d88a; }
+button, select {
+  font: inherit;
+  border: none;
+  border-radius: 12px;
+  padding: 13px;
+}
+button {
+  background: #377ff5;
+  color: white;
+  cursor: pointer;
+}
+button:disabled { opacity: .45; cursor: default; }
+select {
+  width: 100%;
+  background: #3a3a3c;
+  color: white;
+}
+input[type=range] { width: 100%; accent-color: #377ff5; }
+.actions { display: flex; gap: 10px; }
+.actions button { flex: 1; }
+.timer { display: flex; gap: 6px; }
+.timer button { flex: 1; background: #3a3a3c; }
+.timer button.active { background: #377ff5; }
+.back {
+  background: transparent;
+  color: #79adff;
+  padding: 0;
+}
+.hidden { display: none; }
+.notice {
+  text-align: center;
+  color: #aaa;
+  font-size: 12px;
+  margin-top: 24px;
+}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="status">9:41 · Sleepbuds Revival</div>
+
+  <section id="home">
+    <h1>Sleepbuds Revival</h1>
+    <div class="subtitle">Bose Sleepbuds II</div>
+
+    <div class="card row">
+      <span>Bluetooth</span>
+      <span class="green">● Available · Live scanning</span>
+    </div>
+
+    <button style="width:100%" onclick="scan()">Scan for Sleepbuds</button>
+
+    <h2>Discovered Earbuds</h2>
+    <div id="devices" class="small">Tap Scan to find earbuds.</div>
+
+    <button style="width:100%;margin-top:22px"
+      onclick="showPlayback()">Playback →</button>
+  </section>
+
+  <section id="playback" class="hidden">
+    <button class="back" onclick="showHome()">‹ Back</button>
+    <h1>Playback</h1>
+    <div class="subtitle">Control your Sleepbuds</div>
+
+    <h2>Ready Earbuds</h2>
+    <div class="card" id="ready">0 ready</div>
+
+    <h2>Sleep Sound</h2>
+    <select id="sound">
+      <option>Warm Static</option>
+      <option>Swell</option>
+      <option>Tranquility</option>
+      <option>Celesta</option>
+      <option>Staccato Bells</option>
+      <option>Gentle Bells</option>
+      <option>Rinse</option>
+      <option>Starboard</option>
+      <option>Ode</option>
+      <option>Wanderlust</option>
+      <option>Boardwalk</option>
+      <option>Windowseat</option>
+    </select>
+
+    <h2>Volume <span id="volumeLabel">35</span></h2>
+    <input id="volume" type="range" min="0" max="100" value="35"
+      oninput="document.getElementById('volumeLabel').textContent=this.value">
+
+    <button style="width:100%;margin-top:12px"
+      onclick="message('Volume applied in preview')">Apply Volume</button>
+
+    <h2>Sleep Timer</h2>
+    <div class="timer" id="timers">
+      <button class="active" onclick="timer(this)">Off</button>
+      <button onclick="timer(this)">15m</button>
+      <button onclick="timer(this)">30m</button>
+      <button onclick="timer(this)">60m</button>
+    </div>
+
+    <h2>Controls</h2>
+    <div class="actions">
+      <button onclick="sendPlayback('play')">▶ Play Both</button>
+      <button onclick="sendPlayback('stop')">■ Stop Both</button>
+    </div>
+    <p id="message" class="small"></p>
+  </section>
+
+  <p class="notice">LIVE BLUETOOTH · Scanning and connection checks enabled</p>
+</div>
+
+<script>
+
+let connected = new Set();
+let states = ["discovered", "discovered"];
+const batteries = [85, 92];
+
+
+async function scan() {
+  const container = document.getElementById("devices");
+
+  connected.clear();
+  states = [];
+  container.textContent = "Scanning for real Bose Sleepbuds...";
+
+  try {
+    const response = await fetch("/api/scan");
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || "Bluetooth scan failed");
+    }
+
+    if (result.devices.length === 0) {
+      container.textContent = "No Sleepbuds found. Try scanning again.";
+      return;
+    }
+
+    container.innerHTML = "";
+
+    result.devices.forEach((device, i) => {
+      const card = document.createElement("div");
+      card.className = "card row";
+
+      const details = document.createElement("div");
+
+      const name = document.createElement("strong");
+      name.textContent = device.name;
+
+      const address = document.createElement("div");
+      address.className = "small";
+      address.textContent = device.address;
+
+      const status = document.createElement("div");
+      status.className = "small";
+      const discovery = document.createElement("div");
+      discovery.className = "small";
+      discovery.textContent = device.discovered
+        ? "● Discovered Now"
+        : "○ Previously Saved · Not detected in latest scan";
+
+      status.textContent = "Connection not checked yet";
+
+      details.append(name, address, discovery, status);
+
+      const button = document.createElement("button");
+      button.textContent = "Check Connection";
+      button.onclick = async () => {
+        button.disabled = true;
+        button.textContent = "Connecting...";
+        status.textContent = "Reading live Bluetooth status...";
+
+        try {
+          const response = await fetch(
+            "/api/status?address=" + encodeURIComponent(device.address)
+          );
+
+          const result = await response.json();
+
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || "Connection failed");
+          }
+
+          status.textContent =
+            "Last check successful | Firmware: " + result.firmware +
+            " | Battery: " + result.battery +
+            " | Sound: " + result.sound +
+            " | Volume: " + result.volume +
+            " | Phone-free: " + result.phone_free;
+
+          button.textContent = "Check Again";
+
+        } catch (error) {
+          status.textContent = "Connection failed: " + error.message;
+          button.textContent = "Retry";
+        } finally {
+          button.disabled = false;
+        }
+      };
+
+      card.append(details, button);
+      container.appendChild(card);
+    });
+
+    updateReady();
+
+  } catch (error) {
+    container.textContent = "Scan failed: " + error.message;
+  }
+}
+
+function connect(i) {
+  if (states[i] !== "discovered") return;
+
+  states[i] = "connecting";
+  updateBud(i, "Connecting...", true);
+
+  setTimeout(() => {
+    if (states[i] !== "connecting") return;
+    states[i] = "initializing";
+    updateBud(i, "Initializing Bose protocol...", true);
+
+    setTimeout(() => {
+      if (states[i] !== "initializing") return;
+      states[i] = "ready";
+      connected.add(i);
+      updateBud(i, "Ready for playback", true);
+      document.getElementById("battery" + i).textContent =
+        "Battery: " + batteries[i] + "% (demo)";
+      updateReady();
+    }, 1200);
+  }, 1000);
+}
+
+function updateBud(i, status, disabled) {
+  document.getElementById("status" + i).textContent = status;
+  const button = document.getElementById("bud" + i);
+  button.textContent = states[i] === "ready" ? "✓ Ready" : "Please wait";
+  button.disabled = disabled;
+}
+
+function updateReady() {
+  document.getElementById("ready").textContent =
+    "Bluetooth ready · Connects when needed";
+
+  document.querySelectorAll(".actions button").forEach(
+    button => button.disabled = false
+  );
+}
+
+function showPlayback() {
+  document.getElementById("home").classList.add("hidden");
+  document.getElementById("playback").classList.remove("hidden");
+  updateReady();
+}
+
+function showHome() {
+  document.getElementById("playback").classList.add("hidden");
+  document.getElementById("home").classList.remove("hidden");
+}
+
+function timer(button) {
+  document.querySelectorAll("#timers button").forEach(
+    b => b.classList.remove("active")
+  );
+  button.classList.add("active");
+}
+
+function message(text) {
+  document.getElementById("message").textContent = text;
+}
+
+async function sendPlayback(action) {
+    const buttons = document.querySelectorAll(".actions button");
+    buttons.forEach(button => button.disabled = true);
+
+    message(action === "play"
+        ? "Sending Play Both command..."
+        : "Sending Stop Both command...");
+
+    try {
+        const sounds = {
+            "Warm Static": 35,
+            "Swell": 31,
+            "Tranquility": 33,
+            "Celesta": 49,
+            "Staccato Bells": 55,
+            "Gentle Bells": 57,
+            "Rinse": 76,
+            "Starboard": 81,
+            "Ode": 93,
+            "Wanderlust": 94,
+            "Boardwalk": 95,
+            "Windowseat": 103
+        };
+
+        const selected = document.getElementById("sound").value;
+        const volume = Number(document.getElementById("volume").value);
+        const timerButtons = [...document.querySelectorAll("#timers button")];
+        const activeTimer = timerButtons.find(button =>
+            button.classList.contains("active")
+        );
+        const timers = {"Off": 0, "15m": 900, "30m": 1800, "60m": 3600};
+
+        const response = await fetch("/api/" + action, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                sound: sounds[selected],
+                volume: volume,
+                timer: timers[activeTimer?.textContent.trim()] ?? 0
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || "Bluetooth command failed");
+        }
+
+        message(action === "play"
+            ? "Playback reported on both Sleepbuds."
+            : "Stop commands sent to both Sleepbuds.");
+
+    } catch (error) {
+        message("Error: " + error.message);
+    } finally {
+        buttons.forEach(button => button.disabled = false);
+    }
+}
+
+</script>
+</body>
+</html>
