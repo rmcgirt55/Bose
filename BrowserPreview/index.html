@@ -186,6 +186,7 @@ async function scan() {
     }
 
     container.innerHTML = "";
+    const connectionButtons = [];
 
     result.devices.forEach((device, i) => {
       const card = document.createElement("div");
@@ -231,27 +232,35 @@ async function scan() {
           }
 
           status.textContent =
-            "Last check successful | Firmware: " + result.firmware +
+            "Last connected successfully | Firmware: " + result.firmware +
             " | Battery: " + result.battery +
             " | Sound: " + result.sound +
             " | Volume: " + result.volume +
             " | Phone-free: " + result.phone_free;
 
-          button.textContent = "Check Again";
+          button.textContent = "✓ Verified";
+          button.dataset.verified = "true";
 
         } catch (error) {
           status.textContent = "Connection failed: " + error.message;
           button.textContent = "Retry";
         } finally {
-          button.disabled = false;
+          button.disabled = button.dataset.verified === "true";
         }
       };
 
       card.append(details, button);
       container.appendChild(card);
+
+      connectionButtons.push(button);
     });
 
     updateReady();
+
+    // Check each earbud sequentially after scanning.
+    for (const button of connectionButtons) {
+      await button.onclick();
+    }
 
   } catch (error) {
     container.textContent = "Scan failed: " + error.message;
@@ -377,6 +386,9 @@ async function sendPlayback(action) {
         buttons.forEach(button => button.disabled = false);
     }
 }
+
+// Automatically scan when the page loads.
+window.addEventListener("load", () => scan());
 
 </script>
 </body>
